@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+
+if len(sys.argv) != 2:
+    print("Usage: python3 fastrecon.py domain.com")
+    sys.exit(1)
+
+domain = sys.argv[1]
+outdir = f"results/{domain}"
+os.makedirs(outdir, exist_ok=True)
+
+print(f"[+] Starting recon on {domain}")
+
+# -------------------------
+# SUBDOMAIN ENUM
+# -------------------------
+
+print("[+] Finding subdomains")
+
+os.system(
+    f"assetfinder --subs-only {domain} | sort -u > {outdir}/subdomains.txt"
+)
+
+# -------------------------
+# ALIVE HOSTS
+# -------------------------
+
+print("[+] Checking alive hosts")
+
+os.system(
+    f"while read h; do "
+    f"nc -z -w2 $h 80 2>/dev/null && echo $h; "
+    f"nc -z -w2 $h 443 2>/dev/null && echo $h; "
+    f"done < {outdir}/subdomains.txt | sort -u > {outdir}/alive.txt"
+)
+
+# -------------------------
+# HOSTS
+# -------------------------
+
+print("[+] Preparing hosts")
+
+os.system(
+    f"grep -Ev '^$' {outdir}/alive.txt | sort -u > {outdir}/hosts.txt"
+)
+
+# -------------------------
+# PORT SCAN
+# -------------------------
+
+print("[+] Scanning common ports")
+
+os.system(
+    f"nmap -iL {outdir}/hosts.txt "
+    f"-p 80,443,8080,8000,8443,3000 "
+    f"--open -T4 "
+    f"-oN {outdir}/ports.txt "
+    f"> /dev/null 2>&1"
+)
+
+# -------------------------
+# BUILD WEB
+# -------------------------
+
+print("[+] Building web targets")
+
+web = open(f"{outdir}/web.txt", "w")
+current_host = ""
+
+with open(f"{outdir}/ports.txt") as f:
+    for line in f:
+
+        if line.startswith("Nmap scan report for"):
+            current_host = line.strip().split()[-1].strip("()")
+
+        if "/tcp" in line and "open" in line:
+            port = line.split("/")[0]
+
+            if port in [ "443", "8443"] :
+                web.write(f"https://{current_host}:{port}\n")
+            else:
+                web.write(f"http://{current_host}:{port}\n")
+
+web.close()
+with open(f"{outdir}/web.txt","a") as f:
+  f.write(f"http://{domain}\n")
+  f.write(f"https://{domain}\n")
+
+os.system(f"sort -u {outdir}/web.txt -o {outdir}/web.txt")
+
+# deduplicate
+os.system(f"sort -u {outdir}/web.txt -o {outdir}/web.txt")
+
+# gowitness
+subprocess.run([
+    "gowitness", "scan", "file",
+    "-f", f"{outdir}/web.txt",
+    "-s", f"{outdir}/screens",
+    "--no-http",
+    "--no-https"
+])
+
+
+# -------------------------
+# NUCLEI
+# -------------------------
+
+print("[+] Running nuclei")
+
+os.system(
+    f"nuclei -l {outdir}/web.txt "
+    f"-t ~/.local/nuclei-templates/http "
+    f"-severity critical,high,medium "
+    f"-rate-limit 200 "
+    f"-timeout 3 "
+    f"-retries 1 "
+    f"-o {outdir}/nuclei.txt"
+)
+
+import json
+
+report = {
+    "domain": domain,
+    "subdomains": open(f"{outdir}/subdomains.txt").read().splitlines(),
+    "alive": open(f"{outdir}/alive.txt").read().splitlines(),
+    "ports": open(f"{outdir}/ports.txt").read().splitlines(),
+    "web_targets": open(f"{outdir}/web.txt").read().splitlines(),
+    "nuclei_findings": open(f"{outdir}/nuclei.txt").read().splitlines()
+}
+
+with open(f"{outdir}/report.json", "w") as f:
+    json.dump(report, f, indent=4)
+
+print("[+] Done")

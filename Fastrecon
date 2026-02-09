@@ -1,0 +1,143 @@
+FastRecon – Automated Attack Surface Mapping Tool
+
+📌 Overview
+
+FastRecon is a lightweight automation script designed to assist security practitioners, students, and defenders in performing initial reconnaissance and attack surface mapping for web-facing assets.
+
+The tool chains together well-known open-source utilities to quickly identify:
+-Exposed subdomains
+-Live hosts
+-Common web services and ports
+-Potential web vulnerabilities (via template-based scanning)
+
+FastRecon is intended strictly for authorized environments, such as:
+-Personal labs
+-Training platforms (e.g. TryHackMe, Hack The Box)
+-Bug bounty programs
+-Internal security assessments
+
+🎯 Purpose & Use Case
+
+During real-world assessments, reconnaissance often involves repetitive manual steps:
+-Enumerating subdomains
+-Checking which hosts are alive
+-Identifying common web services
+-Creating web targets for further testing
+
+FastRecon automates this early recon phase, allowing analysts to:
+-Save time
+-Reduce human error
+-Focus on analysis instead of setup
+
+This tool does not perform exploitation — it only gathers and organizes publicly accessible information.
+
+🧠 How It Works
+
+FastRecon follows a clear, staged workflow:
+
+1️⃣ Subdomain Enumeration
+
+Uses assetfinder to discover subdomains related to the target domain
+
+Results are deduplicated and stored for later stages
+
+2️⃣ Live Host Detection
+
+Checks discovered subdomains for open HTTP (80) and HTTPS (443) ports
+
+Filters out inactive or unreachable hosts
+
+3️⃣ Common Port Scanning
+
+Scans a small, focused list of common web ports:
+
+80, 443, 8080, 8000, 8443, 3000
+
+Uses nmap with conservative timing to minimize noise
+
+4️⃣ Web Target Construction
+
+Builds valid http:// and https:// URLs based on open ports
+
+Produces a clean list of web targets for further inspection
+
+5️⃣ Visual Recon (Optional Context)
+
+Uses gowitness to capture screenshots of discovered web services
+
+Helps analysts quickly identify login panels, dashboards, or APIs
+
+6️⃣ Template-Based Vulnerability Scanning
+
+Runs nuclei using community HTTP templates
+
+Focuses only on:
+-critical
+-high
+-medium severity findings
+
+No intrusive or exploit-based templates are used
+
+7️⃣ Structured Reporting
+
+Outputs both human-readable files and a JSON report
+
+Makes results easy to parse, share, or integrate into other tools
+
+📂 Output Structure
+results/
+└── target.com/
+    ├── subdomains.txt
+    ├── alive.txt
+    ├── hosts.txt
+    ├── ports.txt
+    ├── web.txt
+    ├── nuclei.txt
+    ├── report.json
+    └── screens/
+
+
+report.json consolidates all findings into a single structured file
+
+Ideal for documentation, analysis, or automation pipelines
+
+🛠 Tools Used
+
+FastRecon integrates trusted open-source tools commonly used in security operations:
+
+assetfinder – Subdomain discovery
+
+netcat (nc) – Lightweight connectivity checks
+
+nmap – Port scanning
+
+gowitness – Web screenshotting
+
+nuclei – Template-based vulnerability detection
+
+Each tool is used in a non-intrusive, read-only manner.
+
+⚠️ Ethical & Legal Notice
+
+This tool is intended for authorized security testing only.
+Do not scan systems you do not own or have explicit permission to test
+Respect scope definitions in bug bounty programs
+Follow applicable laws and organizational policies
+The author assumes no liability for misuse of this tool.
+
+🚀 Future Improvements
+
+Planned or possible enhancements:
+Configurable port lists
+Rate limiting controls per module
+Optional DNS resolution instead of TCP checks
+Markdown/HTML report generation
+Integration with additional passive recon tools
+
+🧪 Learning Value
+
+FastRecon was built as a learning-focused automation project, reinforcing:
+Recon methodology
+Tool chaining
+Python scripting for security workflows
+Clean result organization
